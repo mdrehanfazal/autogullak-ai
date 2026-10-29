@@ -1,0 +1,44 @@
+name: AutoGullak 24x7 Cloud Brain
+
+on:
+  schedule:
+    - cron: '30 0 * * *'
+    - cron: '30 7 * * *'
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-ai-engines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout App
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run 7 Autonomous AI Engines
+        env:
+          UPI_ID: ${{ vars.UPI_ID }}
+          AFFILIATE_TAG: ${{ vars.AFFILIATE_TAG }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PINTEREST_TOKEN: ${{ secrets.PINTEREST_TOKEN }}
+          BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+          BLOGGER_TOKEN: ${{ secrets.BLOGGER_TOKEN }}
+        run: python3 autogullak_app.py --cron
+
+      - name: Save Generated Pages, Pins & Wallet State
+        run: |
+          git config user.name "AutoGullak AI Bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add autogullak_data.db generated_pins/
+          git diff --staged --quiet || git commit -m "AutoGullak AI cycle completed"
+          git push
