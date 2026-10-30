@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-AutoGullak AI — All-in-One Autonomous Affiliate + Gold Savings Engine
-Paste this single script into Replit, Render, Termux, or any Python 3 server
-and run:  python3 autogullak_app.py
-Or run headless in GitHub Actions cron:  python3 autogullak_app.py --cron
+AutoGullak AI v2.0 (Real-Money Edition)
+- Zero fake demo balances (tracks real clicks + real EarnKaro/Cuelinks affiliate links)
+- Blocks placeholder 'yourname@upi' mistakes
+- Built-in 1-Tap Copy Title, Description & Live Storefront URL for Pinterest
+- Auto-converts links via Cuelinks Publisher ID OR lets you paste real EarnKaro (ekaro.in) links
 """
 
 import json
@@ -18,7 +19,6 @@ import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-# 1. Auto-install lightweight dependencies if missing
 for pkg, mod in [("Pillow", "PIL"), ("requests", "requests")]:
     try:
         __import__(mod)
@@ -29,11 +29,10 @@ import requests
 from PIL import Image, ImageDraw, ImageFont
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "autogullak_data.db")
+DB_PATH = os.path.join(BASE_DIR, "autogullak_v2.db")
 PINS_DIR = os.path.join(BASE_DIR, "generated_pins")
 os.makedirs(PINS_DIR, exist_ok=True)
 
-# Built-in curated high-demand Indian low-competition routines (used when no LLM key is set, or augmented by Gemini API)
 BUILT_IN_ROUTINES = [
     {
         "slug": "oily-skin-humid-morning-499",
@@ -44,9 +43,9 @@ BUILT_IN_ROUTINES = [
         "pin_desc": "Sticky face and college pimples in Indian humidity? Follow this 3-step morning checklist under ₹499. Tap for full routine & budget links! #skincareindia #ad",
         "palette": ("#ECFDF5", "#065F46", "#10B981", "#D1FAE5"),
         "steps": [
-            {"name": "Step 1: Salicylic / Tea Tree Gel Cleanser", "tip": "Massage 45s on damp skin to clear excess sebum.", "price": "₹249", "commission": 42, "url": "https://mamaearth.in/product/tea-tree-face-wash"},
-            {"name": "Step 2: Oil-Free Niacinamide Gel Hydrator", "tip": "Pea-sized dot stops rebound oiliness without grease.", "price": "₹299", "commission": 48, "url": "https://mamaearth.in/product/oil-free-face-moisturizer"},
-            {"name": "Step 3: Matte Aqua Sunscreen SPF 50 PA+++", "tip": "2-finger rule; zero white cast on Indian skin.", "price": "₹349", "commission": 55, "url": "https://mamaearth.in/product/ultra-light-indian-sunscreen"},
+            {"name": "Step 1: Salicylic / Tea Tree Gel Cleanser", "tip": "Massage 45s on damp skin to clear excess sebum.", "price": "₹249", "url": "https://mamaearth.in/product/tea-tree-face-wash"},
+            {"name": "Step 2: Oil-Free Niacinamide Gel Hydrator", "tip": "Pea-sized dot stops rebound oiliness without grease.", "price": "₹299", "url": "https://mamaearth.in/product/oil-free-face-moisturizer"},
+            {"name": "Step 3: Matte Aqua Sunscreen SPF 50 PA+++", "tip": "2-finger rule; zero white cast on Indian skin.", "price": "₹349", "url": "https://mamaearth.in/product/ultra-light-indian-sunscreen"},
         ],
     },
     {
@@ -58,9 +57,9 @@ BUILT_IN_ROUTINES = [
         "pin_desc": "Hostel or borewell hard water causing hairfall? Save this gentle 3-step wash-day routine under ₹499 for stronger roots. #haircareindia #hairfallcontrol #ad",
         "palette": ("#EFF6FF", "#1E3A8A", "#3B82F6", "#DBEAFE"),
         "steps": [
-            {"name": "Step 1: Rosemary + Redensyl Scalp Oil (Pre-Wash)", "tip": "Apply 45 mins before bath twice a week.", "price": "₹319", "commission": 50, "url": "https://mamaearth.in/product/rosemary-hair-oil"},
-            {"name": "Step 2: Sulphate-Free Chelating Mild Shampoo", "tip": "Removes hard-water mineral buildup gently.", "price": "₹279", "commission": 44, "url": "https://mamaearth.in/product/rosemary-anti-hair-fall-shampoo"},
-            {"name": "Step 3: Peptide Frizz-Lock Conditioner (Ends Only)", "tip": "Never apply on scalp; rinse with cool water.", "price": "₹299", "commission": 46, "url": "https://mamaearth.in/product/rosemary-anti-hair-fall-conditioner"},
+            {"name": "Step 1: Rosemary + Redensyl Scalp Oil (Pre-Wash)", "tip": "Apply 45 mins before bath twice a week.", "price": "₹319", "url": "https://mamaearth.in/product/rosemary-hair-oil"},
+            {"name": "Step 2: Sulphate-Free Chelating Mild Shampoo", "tip": "Removes hard-water mineral buildup gently.", "price": "₹279", "url": "https://mamaearth.in/product/rosemary-anti-hair-fall-shampoo"},
+            {"name": "Step 3: Peptide Frizz-Lock Conditioner (Ends Only)", "tip": "Never apply on scalp; rinse with cool water.", "price": "₹299", "url": "https://mamaearth.in/product/rosemary-anti-hair-fall-conditioner"},
         ],
     },
     {
@@ -72,9 +71,9 @@ BUILT_IN_ROUTINES = [
         "pin_desc": "Walking in harsh afternoon sun? Use this affordable 3-step tan removal + SPF 50 protection checklist made for wheatish & dusky Indian skin. #detan #sunscreenindia #ad",
         "palette": ("#FFFBEB", "#78350F", "#F59E0B", "#FEF3C7"),
         "steps": [
-            {"name": "Step 1: Ubtan / Vitamin C Brightening Wash", "tip": "Gently lifts daily dust and dullness after college.", "price": "₹229", "commission": 38, "url": "https://mamaearth.in/product/ubtan-face-wash"},
-            {"name": "Step 2: Weekly Clay De-Tan Pack (2x Week)", "tip": "Apply thin layer for 10 mins on tanned forehead/neck.", "price": "₹349", "commission": 52, "url": "https://mamaearth.in/product/ubtan-face-mask"},
-            {"name": "Step 3: Invisible Gel Sunscreen SPF 50", "tip": "Reapply every 3 hours outdoors; zero chalky finish.", "price": "₹349", "commission": 54, "url": "https://mamaearth.in/product/vitamin-c-daily-glow-sunscreen"},
+            {"name": "Step 1: Ubtan / Vitamin C Brightening Wash", "tip": "Gently lifts daily dust and dullness after college.", "price": "₹229", "url": "https://mamaearth.in/product/ubtan-face-wash"},
+            {"name": "Step 2: Weekly Clay De-Tan Pack (2x Week)", "tip": "Apply thin layer for 10 mins on tanned forehead/neck.", "price": "₹349", "url": "https://mamaearth.in/product/ubtan-face-mask"},
+            {"name": "Step 3: Invisible Gel Sunscreen SPF 50", "tip": "Reapply every 3 hours outdoors; zero chalky finish.", "price": "₹349", "url": "https://mamaearth.in/product/vitamin-c-daily-glow-sunscreen"},
         ],
     },
     {
@@ -86,9 +85,9 @@ BUILT_IN_ROUTINES = [
         "pin_desc": "Over-exfoliated or dry flaky skin? Heal your skin barrier fast with this soothing 3-step Indian budget routine under ₹499. #skinbarrier #indianskincare #ad",
         "palette": ("#FDF2F8", "#831843", "#EC4899", "#FCE7F3"),
         "steps": [
-            {"name": "Step 1: Creamy Non-Foaming Hydrating Cleanser", "tip": "Cleans without tight squeaky feeling.", "price": "₹249", "commission": 40, "url": "https://mamaearth.in/product/rice-face-wash"},
-            {"name": "Step 2: Ceramide + Hyaluronic Barrier Cream", "tip": "Locks moisture for 12 hours on damp skin.", "price": "₹349", "commission": 52, "url": "https://mamaearth.in/product/rice-oil-free-face-moisturizer"},
-            {"name": "Step 3: Dewy Hydrating Sunscreen SPF 50", "tip": "Protects healing skin from UV pigmentation.", "price": "₹369", "commission": 56, "url": "https://mamaearth.in/product/hydra-gel-indian-sunscreen"},
+            {"name": "Step 1: Creamy Non-Foaming Hydrating Cleanser", "tip": "Cleans without tight squeaky feeling.", "price": "₹249", "url": "https://mamaearth.in/product/rice-face-wash"},
+            {"name": "Step 2: Ceramide + Hyaluronic Barrier Cream", "tip": "Locks moisture for 12 hours on damp skin.", "price": "₹349", "url": "https://mamaearth.in/product/rice-oil-free-face-moisturizer"},
+            {"name": "Step 3: Dewy Hydrating Sunscreen SPF 50", "tip": "Protects healing skin from UV pigmentation.", "price": "₹369", "url": "https://mamaearth.in/product/hydra-gel-indian-sunscreen"},
         ],
     },
 ]
@@ -103,12 +102,7 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS config (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    """)
+    c.execute("CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT)")
     c.execute("""
         CREATE TABLE IF NOT EXISTS routines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,9 +114,7 @@ def init_db():
             pin_desc TEXT,
             steps_json TEXT,
             pin_image TEXT,
-            blogger_url TEXT,
-            pinterest_status TEXT DEFAULT 'Queued (8:30 PM IST)',
-            link_health TEXT DEFAULT '100% Live',
+            link_mode TEXT DEFAULT 'Add EarnKaro Links',
             views INTEGER DEFAULT 0,
             clicks INTEGER DEFAULT 0,
             created_at TEXT
@@ -139,28 +131,25 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS wallet (
             id INTEGER PRIMARY KEY CHECK (id = 1),
-            pending_inr REAL DEFAULT 185.0,
-            confirmed_inr REAL DEFAULT 999.0,
-            gold_vault_inr REAL DEFAULT 310.0,
-            daily_gold_streak INTEGER DEFAULT 31,
-            total_withdrawn_inr REAL DEFAULT 0.0
+            real_withdrawn_inr REAL DEFAULT 0.0,
+            gold_vault_inr REAL DEFAULT 0.0
         )
     """)
     c.execute("INSERT OR IGNORE INTO wallet (id) VALUES (1)")
     defaults = {
-        "autopilot_enabled": "1",
-        "niche": "Skincare & Haircare India",
-        "upi_id": "yourname@upi",
-        "gold_split_pct": "50",
-        "daily_10_gold": "1",
-        "affiliate_tag": "ek_auto_partner",
-        "gemini_api_key": "",
-        "pinterest_token": "",
-        "blogger_blog_id": "",
-        "blogger_token": "",
+        "autopilot_enabled": os.environ.get("AUTOPILOT_ENABLED", "1"),
+        "upi_id": os.environ.get("UPI_ID", "9430883276@upi"),
+        "gold_split_pct": os.environ.get("GOLD_SPLIT_PCT", "50"),
+        "cuelinks_cid": os.environ.get("CUELINKS_CID", ""),
+        "earnkaro_refer_url": os.environ.get("EARNKARO_REFER_URL", ""),
+        "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
+        "pinterest_token": os.environ.get("PINTEREST_TOKEN", ""),
     }
     for k, v in defaults.items():
         c.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (k, v))
+        if os.environ.get(k.upper()):
+            c.execute("UPDATE config SET value = ? WHERE key = ?", (os.environ[k.upper()], k))
+    c.execute("UPDATE config SET value = '9430883276@upi' WHERE key = 'upi_id' AND (value = '' OR value = 'yourname@upi')")
     conn.commit()
     conn.close()
 
@@ -191,13 +180,11 @@ def load_font(size, bold=False):
         return ImageFont.load_default()
 
 
-# Engine 5: Render crisp 1000x1500 Pinterest Checklist Pin PNG
 def render_pin_png(slug, headline, board, steps, palette):
     bg_hex, dark_hex, accent_hex, card_hex = palette
     img = Image.new("RGB", (1000, 1500), bg_hex)
     draw = ImageDraw.Draw(img)
 
-    # Decorative soft header banner
     draw.rounded_rectangle([48, 48, 952, 430], radius=36, fill=card_hex)
     draw.rounded_rectangle([78, 78, 495, 134], radius=28, fill=accent_hex)
 
@@ -216,7 +203,6 @@ def render_pin_png(slug, headline, board, steps, palette):
         draw.text((82, y_h), line, fill=dark_hex, font=f_title)
         y_h += 68
 
-    # 3 Step Checklist Cards
     y_card = 475
     for idx, st in enumerate(steps[:3], start=1):
         draw.rounded_rectangle([56, y_card, 944, y_card + 245], radius=30, fill="#FFFFFF", outline=card_hex, width=4)
@@ -236,14 +222,12 @@ def render_pin_png(slug, headline, board, steps, palette):
         draw.text((198, y_card + 181), f"Approx {st['price']}", fill=dark_hex, font=f_badge)
         y_card += 275
 
-    # Bottom Call-to-Action Footer
     draw.rounded_rectangle([56, 1325, 944, 1435], radius=32, fill=dark_hex)
     draw.text((135, 1360), "Tap Link for Full Step-by-Step List ->", fill="#FFFFFF", font=f_cta)
     draw.text((64, 1452), f"Board: {board}  |  #ad Affiliate Guide", fill="#6B7280", font=f_small)
 
     filename = f"pin_{slug}.png"
-    out_path = os.path.join(PINS_DIR, filename)
-    img.save(out_path, "PNG")
+    img.save(os.path.join(PINS_DIR, filename), "PNG")
     return filename
 
 
@@ -254,18 +238,24 @@ def get_config_dict():
     return {r["key"]: r["value"] for r in rows}
 
 
-def attach_affiliate_tag(url, tag):
-    sep = "&" if "?" in url else "?"
-    return f"{url}{sep}utm_source=pinterest&aff_sub={urllib.parse.quote(tag)}"
+def build_final_affiliate_url(raw_url, cfg):
+    # If user pasted an EarnKaro ekaro.in link directly, use it untouched!
+    if "ekaro.in" in raw_url or "earnkaro" in raw_url or "bitli.in" in raw_url:
+        return raw_url, "EarnKaro Live ✅"
+    # If user configured Cuelinks Publisher ID, auto-monetize EVERY product link automatically!
+    cid = cfg.get("cuelinks_cid", "").strip()
+    if cid:
+        encoded = urllib.parse.quote(raw_url, safe="")
+        return f"https://linksredirect.com/?cid={urllib.parse.quote(cid)}&source=js&url={encoded}", "Cuelinks Auto-Monetized ✅"
+    return raw_url, "Paste ekaro.in Link ⚠️"
 
 
-# Optional live Gemini AI routine generator if user pastes a free Gemini API key
 def maybe_generate_ai_routine(api_key, existing_slugs):
     if not api_key:
         return None
     prompt = (
         "Generate 1 low-competition Indian budget skincare or haircare 3-step routine under ₹499 as strict JSON "
-        "with keys: slug, niche, board, pin_headline, pin_title, pin_desc, steps (list of 3 objects with name, tip, price, commission, url). "
+        "with keys: slug, niche, board, pin_headline, pin_title, pin_desc, steps (list of 3 objects with name, tip, price, url). "
         f"Avoid these slugs: {list(existing_slugs)}."
     )
     try:
@@ -280,53 +270,15 @@ def maybe_generate_ai_routine(api_key, existing_slugs):
             data["palette"] = ("#ECFDF5", "#065F46", "#10B981", "#D1FAE5")
             return data
     except Exception as exc:
-        log_event("AI Brain", f"Gemini fallback to built-in library ({exc})")
+        log_event("AI Brain", f"Used built-in Indian library ({exc})")
     return None
 
 
-# Optional live Google Blogger API v3 & Pinterest API v5 connectors
-def maybe_publish_blogger(cfg, title, html_body):
-    if not cfg.get("blogger_blog_id") or not cfg.get("blogger_token"):
-        return ""
-    try:
-        r = requests.post(
-            f"https://www.googleapis.com/blogger/v3/blogs/{cfg['blogger_blog_id']}/posts/",
-            headers={"Authorization": f"Bearer {cfg['blogger_token']}", "Content-Type": "application/json"},
-            json={"kind": "blogger#post", "title": title, "content": html_body},
-            timeout=12,
-        )
-        if r.status_code in (200, 201):
-            return r.json().get("url", "")
-    except Exception:
-        pass
-    return ""
-
-
-def maybe_post_pinterest(cfg, title, desc, link, image_url):
-    if not cfg.get("pinterest_token"):
-        return "Scheduled in Cloud Queue (8:30 PM IST)"
-    try:
-        r = requests.post(
-            "https://api.pinterest.com/v5/pins",
-            headers={"Authorization": f"Bearer {cfg['pinterest_token']}", "Content-Type": "application/json"},
-            json={"title": title[:100], "description": desc[:500], "link": link, "media_source": {"source_type": "image_url", "url": image_url}},
-            timeout=12,
-        )
-        if r.status_code in (200, 201):
-            return "Published Live via Pinterest API"
-    except Exception:
-        pass
-    return "Scheduled in Cloud Queue (8:30 PM IST)"
-
-
-# Full 7-Engine Autonomous Cycle
 def run_autonomous_cycle():
     cfg = get_config_dict()
     conn = get_db()
     existing = {r["slug"] for r in conn.execute("SELECT slug FROM routines").fetchall()}
     conn.close()
-
-    log_event("1. Demand Radar", "Scanned Pinterest India low-competition beauty & haircare search trends.")
 
     chosen = maybe_generate_ai_routine(cfg.get("gemini_api_key", ""), existing)
     if not chosen:
@@ -335,25 +287,18 @@ def run_autonomous_cycle():
                 chosen = item
                 break
         if not chosen:
-            suffix = int(time.time()) % 1000
-            base = BUILT_IN_ROUTINES[suffix % len(BUILT_IN_ROUTINES)].copy()
-            base["slug"] = f"{base['slug']}-v{suffix}"
-            base["pin_headline"] = f"{base['pin_headline']}"
-            chosen = base
+            # All 4 starter routines already exist; don't create duplicates unless Gemini key is added
+            log_event("Cloud Check", "All 4 starter routines & Pins are live and healthy. Add free Gemini Key in Setup for unlimited new topics!")
+            return "all-live"
 
-    # Engine 2 & 3: Attach affiliate tags + verify link health
     tagged_steps = []
-    healthy_count = 0
+    mode_label = "Paste ekaro.in Link ⚠️"
     for st in chosen["steps"]:
         st_copy = dict(st)
-        st_copy["aff_url"] = attach_affiliate_tag(st["url"], cfg.get("affiliate_tag", "ek_partner"))
-        healthy_count += 1
+        final_u, mode_label = build_final_affiliate_url(st["url"], cfg)
+        st_copy["aff_url"] = final_u
         tagged_steps.append(st_copy)
 
-    log_event("2. Product Picker", f"Selected 3 4.1★+ items (10–23% payout) & attached tag '{cfg.get('affiliate_tag')}'.")
-    log_event("3. Link Healer", f"Verified {healthy_count}/3 product links in-stock & active.")
-
-    # Engine 5: Render 1000x1500 Pin PNG
     pin_file = render_pin_png(
         chosen["slug"],
         chosen["pin_headline"],
@@ -361,21 +306,13 @@ def run_autonomous_cycle():
         tagged_steps,
         chosen.get("palette", ("#ECFDF5", "#065F46", "#10B981", "#D1FAE5")),
     )
-    log_event("5. Pin Studio", f"Rendered vertical 1000x1500 PNG checklist Pin ({pin_file}).")
-
-    # Engine 4 & 6: Publish Routine Page + Queue Pin
-    html_snippet = "<p><em>Disclosure: #ad Affiliate links included.</em></p>"
-    b_url = maybe_publish_blogger(cfg, chosen["pin_title"], html_snippet)
-    local_url = f"/r/{chosen['slug']}"
-    final_url = b_url or local_url
-    p_status = maybe_post_pinterest(cfg, chosen["pin_title"], chosen["pin_desc"], final_url, f"/pins/{pin_file}")
 
     conn = get_db()
     now = datetime.now().strftime("%d %b %Y, %I:%M %p")
     conn.execute(
         """INSERT INTO routines
-           (slug, niche, board, pin_headline, pin_title, pin_desc, steps_json, pin_image, blogger_url, pinterest_status, link_health, views, clicks, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           (slug, niche, board, pin_headline, pin_title, pin_desc, steps_json, pin_image, link_mode, views, clicks, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)""",
         (
             chosen["slug"],
             chosen["niche"],
@@ -385,39 +322,40 @@ def run_autonomous_cycle():
             chosen["pin_desc"],
             json.dumps(tagged_steps),
             pin_file,
-            final_url,
-            p_status,
-            "3/3 Links In-Stock",
-            28,
-            4,
+            mode_label,
             now,
         ),
     )
-    conn.execute("UPDATE wallet SET pending_inr = pending_inr + 46.0 WHERE id = 1")
     conn.commit()
     conn.close()
 
-    log_event("4 & 6. Drip Scheduler", f"Published routine page '{final_url}' & queued Pin for peak IST buyer window.")
-    log_event("7. Winner Cloner", "Updated click-to-save scores so top-converting skin/hair problem gets cloned next.")
+    log_event("AI Studio", f"Created Routine '/r/{chosen['slug']}' + 1000x1500 Pin ({pin_file}).")
     return chosen["slug"]
 
 
-# Render public buyer-facing Routine Guide HTML (/r/<slug>)
-def render_routine_public_html(row):
+def render_routine_public_html(row, cfg):
     steps = json.loads(row["steps_json"])
     cards_html = ""
     for i, st in enumerate(steps, 1):
+        out_link = f"/go/{row['slug']}/{i - 1}"
         cards_html += f"""
         <div style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.03)">
             <div style="font-size:12px;font-weight:700;color:#059669;text-transform:uppercase;margin-bottom:4px">Step {i} · Approx {st['price']}</div>
             <h3 style="margin:0 0 8px;font-size:17px;color:#111827">{st['name']}</h3>
             <p style="margin:0 0 14px;font-size:14px;color:#4b5563;line-height:1.5">{st['tip']}</p>
-            <a href="{st['aff_url']}" target="_blank" rel="nofollow sponsored"
+            <a href="{out_link}" target="_blank" rel="nofollow sponsored"
                style="display:block;text-align:center;background:#059669;color:#fff;text-decoration:none;font-weight:700;padding:12px;border-radius:12px;font-size:14px">
-               Check Latest Price & BOGO Offer ->
+               Check Latest Price & Offers ->
             </a>
         </div>
         """
+    refer_html = ""
+    if cfg.get("earnkaro_refer_url"):
+        refer_html = f"""
+        <div style="text-align:center;margin-top:18px;padding:12px;background:#ecfdf5;border-radius:12px;font-size:13px">
+          Want cashback when sharing beauty deals? <a href="{cfg['earnkaro_refer_url']}" target="_blank" style="color:#065f46;font-weight:700">Join EarnKaro Free -></a>
+        </div>"""
+
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{row['pin_title']}</title></head>
@@ -430,308 +368,187 @@ def render_routine_public_html(row):
     <h1 style="font-size:22px;line-height:1.3;margin:10px 0 6px;color:#0f172a">{row['pin_title']}</h1>
     <p style="font-size:14px;color:#475569;margin-bottom:18px">{row['pin_desc']}</p>
     {cards_html}
-    <p style="text-align:center;font-size:12px;color:#94a3b8;margin-top:24px">Auto-verified In-Stock · Powered by AutoGullak AI</p>
+    {refer_html}
   </div>
 </body></html>"""
 
 
-# Single-page Mobile App UI (HTML/CSS/JS)
 MOBILE_APP_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>AutoGullak AI — Cloud Autopilot & UPI Gold Vault</title>
+<title>AutoGullak AI v2 — Real-Money Edition</title>
 <style>
   :root {
-    --bg: #f4f7f5;
-    --card: #ffffff;
-    --ink: #0f172a;
-    --muted: #64748b;
-    --brand: #059669;
-    --brand-dark: #065f46;
-    --brand-soft: #d1fae5;
-    --gold: #d97706;
-    --gold-soft: #fef3c7;
-    --line: #e2e8f0;
+    --bg: #f4f7f5; --card: #ffffff; --ink: #0f172a; --muted: #64748b;
+    --brand: #059669; --brand-dark: #065f46; --brand-soft: #d1fae5;
+    --gold: #d97706; --gold-soft: #fef3c7; --line: #e2e8f0;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body {
-    margin: 0;
-    background: #e2e8f0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: var(--ink);
-  }
-  .phone-shell {
-    max-width: 440px;
-    min-height: 100vh;
-    margin: 0 auto;
-    background: var(--bg);
-    padding-bottom: 88px;
-    box-shadow: 0 0 40px rgba(15,23,42,0.12);
-    position: relative;
-  }
-  .topbar {
-    background: linear-gradient(135deg, #064e3b, #059669);
-    color: #fff;
-    padding: 18px 18px 20px;
-    border-bottom-left-radius: 24px;
-    border-bottom-right-radius: 24px;
-  }
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background: rgba(255,255,255,0.16);
-    padding: 5px 12px;
-    border-radius: 99px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: #4ade80;
-    box-shadow: 0 0 8px #4ade80;
-  }
-  .topbar h1 { margin: 10px 0 3px; font-size: 21px; letter-spacing: -0.3px; }
-  .topbar p { margin: 0; font-size: 12.5px; opacity: 0.88; }
+  body { margin: 0; background: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  .phone-shell { max-width: 460px; min-height: 100vh; margin: 0 auto; background: var(--bg); padding-bottom: 92px; box-shadow: 0 0 40px rgba(15,23,42,0.12); }
+  .topbar { background: linear-gradient(135deg, #064e3b, #059669); color: #fff; padding: 18px 18px 20px; border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+  .status-pill { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.16); padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+  .topbar h1 { margin: 10px 0 3px; font-size: 21px; }
+  .topbar p { margin: 0; font-size: 12.5px; opacity: 0.9; }
   .section { padding: 14px 16px 0; display: none; }
   .section.active { display: block; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 15px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 6px rgba(15,23,42,0.03);
-  }
-  .stat-num { font-size: 22px; font-weight: 800; margin-top: 4px; color: var(--ink); }
-  .stat-label { font-size: 12px; color: var(--muted); font-weight: 600; }
-  .btn {
-    width: 100%;
-    border: none;
-    border-radius: 14px;
-    padding: 14px 16px;
-    font-size: 14.5px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.1s ease, opacity 0.15s ease;
-  }
-  .btn:active { transform: scale(0.98); }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 15px; margin-bottom: 12px; }
+  .stat-num { font-size: 20px; font-weight: 800; margin-top: 4px; }
+  .stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .btn { width: 100%; border: none; border-radius: 13px; padding: 12px 14px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn-sm { padding: 8px 10px; font-size: 12px; border-radius: 10px; width: auto; }
   .btn-primary { background: var(--brand); color: #fff; }
   .btn-gold { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
   .btn-outline { background: #f8fafc; color: var(--ink); border: 1px solid var(--line); }
-  .tag {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 9px;
-    border-radius: 99px;
-    background: var(--brand-soft);
-    color: var(--brand-dark);
-  }
-  .pin-item {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    border-bottom: 1px solid var(--line);
-    padding: 11px 0;
-  }
-  .pin-item:last-child { border-bottom: none; }
-  .pin-thumb {
-    width: 64px; height: 96px;
-    border-radius: 10px;
-    object-fit: cover;
-    border: 1px solid var(--line);
-    flex-shrink: 0;
-  }
-  .log-row {
-    font-size: 12.5px;
-    padding: 8px 0;
-    border-bottom: 1px dashed var(--line);
-    line-height: 1.4;
-  }
-  .log-row:last-child { border-bottom: none; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--brand-soft); color: var(--brand-dark); }
+  .tag-warn { background: #fef3c7; color: #92400e; }
+  .pin-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: #fff; }
+  .log-row { font-size: 12.5px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
   label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 0 4px; }
-  input, select {
-    width: 100%;
-    padding: 11px 12px;
-    border-radius: 11px;
-    border: 1px solid var(--line);
-    font-size: 14px;
-    background: #f8fafc;
-  }
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 440px;
-    background: #ffffff;
-    border-top: 1px solid var(--line);
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    padding: 8px 6px 12px;
-    z-index: 20;
-  }
-  .nav-btn {
-    background: none; border: none;
-    font-size: 11px; font-weight: 700;
-    color: var(--muted);
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    cursor: pointer;
-  }
+  input, select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 13.5px; background: #f8fafc; }
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 460px; background: #fff; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 6px 12px; z-index: 20; }
+  .nav-btn { background: none; border: none; font-size: 11px; font-weight: 700; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
   .nav-btn.active { color: var(--brand); }
-  .toast {
-    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
-    background: #0f172a; color: #fff; font-size: 13px; font-weight: 600;
-    padding: 10px 16px; border-radius: 99px; display: none; z-index: 99;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-  }
+  .toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; font-size: 13px; font-weight: 600; padding: 10px 16px; border-radius: 99px; display: none; z-index: 99; }
 </style>
 </head>
 <body>
-<div class="toast" id="toast">Saved!</div>
+<div class="toast" id="toast">Copied!</div>
 <div class="phone-shell">
   <div class="topbar">
-    <div class="status-pill">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusText">Cloud Brain Active · Next Pin 8:30 PM IST</span>
-    </div>
-    <h1>AutoGullak AI</h1>
-    <p>Zero-PAN Affiliate Autopilot + ₹10/Day Gold Vault</p>
+    <div class="status-pill"><span class="dot"></span><span>Real-Money Mode · Zero Fake Numbers</span></div>
+    <h1>AutoGullak AI v2</h1>
+    <p id="upiBanner">Checking UPI setup...</p>
   </div>
 
-  <!-- TAB 1: AUTOPILOT HOME -->
+  <!-- TAB 1: HOME -->
   <div class="section active" id="tab-home">
-    <div class="grid-2" style="margin-top:4px">
-      <div class="card" style="margin-bottom:0">
-        <div class="stat-label">AI Pages Live</div>
+    <div id="setupAlert" class="card" style="background:#fffbeb;border-color:#fde68a;display:none">
+      <strong style="color:#92400e;font-size:13.5px">⚠️ Step 1 Required: Set Your Real UPI & Links!</strong>
+      <p style="font-size:12.5px;color:#78350f;margin:5px 0 10px">
+        Add your real UPI ID in <strong>⚙️ Setup</strong>, and paste your real <strong>EarnKaro (ekaro.in)</strong> links inside <strong>📌 AI Pins</strong> so real commissions go to YOUR account!
+      </p>
+      <button class="btn btn-gold" onclick="switchTab('setup')">Go to ⚙️ Setup Now -></button>
+    </div>
+
+    <div class="grid-3">
+      <div class="card" style="margin-bottom:0;padding:12px">
+        <div class="stat-label">Pages Live</div>
         <div class="stat-num" id="statPages">0</div>
       </div>
-      <div class="card" style="margin-bottom:0">
-        <div class="stat-label">Link Health</div>
-        <div class="stat-num" style="color:var(--brand);font-size:18px;margin-top:8px">100% In-Stock</div>
+      <div class="card" style="margin-bottom:0;padding:12px">
+        <div class="stat-label">Real Page Views</div>
+        <div class="stat-num" id="statViews">0</div>
+      </div>
+      <div class="card" style="margin-bottom:0;padding:12px">
+        <div class="stat-label">Shopper Clicks</div>
+        <div class="stat-num" style="color:var(--brand)" id="statClicks">0</div>
       </div>
     </div>
 
-    <div class="card" style="margin-top:10px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fde68a">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:#92400e">READY FOR HUMAN CASHOUT</div>
-          <div style="font-size:28px;font-weight:900;color:#78350f;margin-top:2px">₹<span id="homeConfirmed">999</span></div>
-        </div>
-        <button class="btn btn-gold" style="width:auto;padding:11px 16px" onclick="switchTab('vault')">Collect -></button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <strong style="font-size:14.5px">7-Engine Cloud Trigger</strong>
-        <span class="tag">100% Automated</span>
-      </div>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.45">
-        Runs automatically at 6:00 AM, 1:00 PM & 8:30 PM IST in the cloud—or tap below to watch the AI pick products, build a Routine Page, and design a 1000x1500 Pin right now:
+    <div class="card" style="margin-top:12px">
+      <strong style="font-size:14.5px">⚡ Build Next Routine Page + 1000x1500 Pin</strong>
+      <p style="font-size:12.5px;color:var(--muted);margin:6px 0 12px">
+        Creates a ready-to-share Routine Webpage + downloadable Pinterest Pin PNG:
       </p>
-      <button class="btn btn-primary" id="runBtn" onclick="triggerCycle()">⚡ Run AI Cycle Now (Build Page + Pin)</button>
+      <button class="btn btn-primary" id="runBtn" onclick="triggerCycle()">⚡ Generate Routine + Pin Now</button>
     </div>
 
     <div class="card">
-      <strong style="font-size:14px;display:block;margin-bottom:6px">Live Background Activity Log</strong>
+      <strong style="font-size:14px;display:block;margin-bottom:6px">Real Activity Log</strong>
       <div id="logsBox"></div>
     </div>
   </div>
 
-  <!-- TAB 2: PINS & PAGES -->
+  <!-- TAB 2: AI PINS & REAL EARNKARO LINKS -->
   <div class="section" id="tab-pins">
     <div class="card">
-      <strong style="font-size:15px">AI-Built Routine Pages & 1000x1500 Pins</strong>
-      <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">
-        Tap any Pin image to download PNG to phone, or open its live Routine Storefront:
+      <strong style="font-size:15px">📌 Your Pins & Real EarnKaro Links</strong>
+      <p style="font-size:12px;color:var(--muted);margin:4px 0 0">
+        1. Paste your 3 real <strong>ekaro.in</strong> links once per routine.<br>
+        2. Download the Pin PNG & tap "Copy Pin Link" to post on Pinterest!
       </p>
-      <div id="pinsList"></div>
     </div>
+    <div id="pinsList"></div>
   </div>
 
-  <!-- TAB 3: MONEY & GOLD VAULT -->
+  <!-- TAB 3: REAL EARNKARO + GOLD VAULT -->
   <div class="section" id="tab-vault">
     <div class="card" style="background:linear-gradient(135deg,#064e3b,#047857);color:#fff;border:none">
-      <div style="font-size:12px;opacity:0.85;font-weight:700">CONFIRMED AFFILIATE EARNINGS (NO PAN)</div>
-      <div style="font-size:34px;font-weight:900;margin:6px 0 4px">₹<span id="vaultConfirmed">999</span></div>
-      <div style="font-size:12.5px;opacity:0.9;margin-bottom:14px">
-        Pending in return window: <strong>₹<span id="vaultPending">185</span></strong>
-      </div>
-      <button class="btn" style="background:#fff;color:#064e3b" onclick="collectMoney()">
-        Collect Confirmed ₹ to UPI + Gold Vault
-      </button>
+      <div style="font-size:12px;opacity:0.9;font-weight:700">HOW REAL PAYOUTS WORK (NO PAN CARD)</div>
+      <p style="font-size:13px;line-height:1.5;margin:8px 0 14px">
+        When shoppers click your Routine Pages and buy, real rupees appear inside your <strong>EarnKaro App ("My Earnings")</strong>. Once ₹10+ is Confirmed, tap below to withdraw straight to your UPI (<strong id="vaultUpiText">Not set</strong>)!
+      </p>
+      <a href="https://earnkaro.com/profile" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;background:#fff;color:#064e3b">
+        1. Open EarnKaro -> Withdraw Real ₹ to UPI ↗
+      </a>
     </div>
 
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="stat-label">24K Digital Gold Vault (MMTC-PAMP)</div>
-          <div class="stat-num" style="color:var(--gold)">₹<span id="goldBalance">310</span></div>
-        </div>
-        <span class="tag" style="background:var(--gold-soft);color:#92400e">🔥 <span id="goldStreak">31</span>-Day ₹10 Streak</span>
-      </div>
-      <p style="font-size:12.5px;color:var(--muted);margin:10px 0 12px;line-height:1.45">
-        Auto-Sweep Split: <strong><span id="splitLabel">50</span>%</strong> of every payout moves into your Gold Vault on top of your ₹10/day UPI AutoPay.
+      <strong style="font-size:14.5px">🪙 24K Digital Gold Vault Tracker</strong>
+      <p style="font-size:12.5px;color:var(--muted);margin:5px 0 12px">
+        Record every real EarnKaro payout + daily ₹10 Gold save you make on PhonePe / Paytm (MMTC-PAMP):
       </p>
-      <a id="upiDeepLink" href="upi://pay?pa=yourname@upi&pn=AutoGullak&am=10&cu=INR" class="btn btn-outline" style="display:block;text-align:center;text-decoration:none">
-        Open UPI App (PhonePe / Paytm Gold ₹10)
+      <div class="grid-3" style="margin-bottom:12px">
+        <div style="background:#f8fafc;padding:10px;border-radius:12px">
+          <div class="stat-label">Withdrawn</div>
+          <div class="stat-num" style="font-size:17px">₹<span id="realWithdrawn">0</span></div>
+        </div>
+        <div style="background:#fffbeb;padding:10px;border-radius:12px">
+          <div class="stat-label">In Gold Vault</div>
+          <div class="stat-num" style="font-size:17px;color:#b45309">₹<span id="goldSaved">0</span></div>
+        </div>
+        <div style="background:#ecfdf5;padding:10px;border-radius:12px">
+          <div class="stat-label">Shopper Clicks</div>
+          <div class="stat-num" style="font-size:17px;color:#059669" id="vaultClicks">0</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="logAmt" type="number" placeholder="Enter real ₹ earned (e.g. 50)" style="margin:0">
+        <button class="btn btn-primary btn-sm" onclick="recordRealPayout()" style="white-space:nowrap">+ Log Real ₹</button>
+      </div>
+      <a href="https://paytm.com/digitalgold" target="_blank" class="btn btn-gold" style="display:block;text-align:center;text-decoration:none">
+        2. Put ₹10 / Profit into MMTC-PAMP Digital Gold ↗
       </a>
     </div>
   </div>
 
-  <!-- TAB 4: SETUP & SAFETY -->
+  <!-- TAB 4: SETUP -->
   <div class="section" id="tab-setup">
     <div class="card">
-      <strong style="font-size:15px">One-Time Setup & API Keys (Optional)</strong>
-      <p style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-        Works out-of-the-box with built-in Indian routines. Paste free API keys anytime for full cloud auto-posting:
-      </p>
-      <label>Your UPI ID (For 1-Tap Collect, No PAN)</label>
-      <input id="cfgUpi" placeholder="example@ybl">
+      <strong style="font-size:15px">⚙️ Permanent Setup (Your Real Account)</strong>
+      <label>Your Real UPI ID (So you never see a demo ID)</label>
+      <input id="cfgUpi" placeholder="e.g. 9876543210@ybl">
 
-      <label>EarnKaro / Cuelinks Affiliate Sub-Tag</label>
-      <input id="cfgTag" placeholder="ek_auto_partner">
+      <label>Auto-Monetize Option: Cuelinks Publisher ID (Optional)</label>
+      <input id="cfgCuelinks" placeholder="Leave blank if pasting EarnKaro ekaro.in links">
 
-      <label>Auto-Sweep % to 24K Gold Vault</label>
+      <label>Your EarnKaro 10% Referral Link (Optional Footer Bonus)</label>
+      <input id="cfgRefer" placeholder="https://topdeal.app.link/...">
+
+      <label>Gold Vault Split %</label>
       <select id="cfgSplit">
-        <option value="30">30% to Gold / 70% Spend</option>
-        <option value="50">50% to Gold / 50% Spend</option>
-        <option value="100">100% Compounding in Gold</option>
+        <option value="50">Save 50% in Gold / Keep 50%</option>
+        <option value="100">Save 100% in Gold</option>
+        <option value="30">Save 30% in Gold / Keep 70%</option>
       </select>
 
-      <label>Free Gemini API Key (Optional — AI Topic Generator)</label>
+      <label>Free Gemini API Key (Optional — Unlimited New AI Topics)</label>
       <input id="cfgGemini" type="password" placeholder="AIza...">
 
-      <label>Pinterest Business API v5 Token (Optional)</label>
-      <input id="cfgPinToken" type="password" placeholder="pina_...">
-
-      <label>Google Blogger Blog ID & OAuth Token (Optional)</label>
-      <input id="cfgBlogId" placeholder="Blog ID (optional)" style="margin-bottom:6px">
-      <input id="cfgBlogToken" type="password" placeholder="Blogger Token (optional)">
-
-      <button class="btn btn-primary" style="margin-top:14px" onclick="saveSettings()">Save Cloud Settings</button>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <strong style="font-size:14px">Anti-Ban Safety Cap</strong>
-          <div style="font-size:12px;color:var(--muted)">Max 2 Pins/day + Auto #ad disclosure</div>
-        </div>
-        <button class="btn btn-outline" style="width:auto;padding:8px 14px" id="toggleBotBtn" onclick="toggleAutopilot()">Pause AI</button>
-      </div>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="saveSettings()">Save My Real Settings</button>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.4">
+        💡 <strong>Tip for Render Free Plan:</strong> Also add <code>UPI_ID</code> in Render -> Environment Variables so Render keeps it even after server sleep!
+      </p>
     </div>
   </div>
 
-  <!-- BOTTOM PHONE NAV -->
   <div class="bottom-nav">
-    <button class="nav-btn active" onclick="switchTab('home')" id="nav-home"><span>⚡</span>Autopilot</button>
+    <button class="nav-btn active" onclick="switchTab('home')" id="nav-home"><span>⚡</span>Home</button>
     <button class="nav-btn" onclick="switchTab('pins')" id="nav-pins"><span>📌</span>AI Pins</button>
     <button class="nav-btn" onclick="switchTab('vault')" id="nav-vault"><span>🪙</span>₹ Vault</button>
     <button class="nav-btn" onclick="switchTab('setup')" id="nav-setup"><span>⚙️</span>Setup</button>
@@ -739,13 +556,13 @@ MOBILE_APP_HTML = r"""<!DOCTYPE html>
 </div>
 
 <script>
-let currentState = {};
+let state = {};
 
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.display = 'block';
-  setTimeout(() => { t.style.display = 'none'; }, 2400);
+  setTimeout(() => { t.style.display = 'none'; }, 2600);
 }
 
 function switchTab(name) {
@@ -755,104 +572,147 @@ function switchTab(name) {
   document.getElementById('nav-' + name).classList.add('active');
 }
 
+function copyText(txt, label) {
+  navigator.clipboard.writeText(txt);
+  showToast('Copied ' + label + '!');
+}
+
 async function fetchState() {
   const res = await fetch('api/status');
   const data = await res.json();
-  currentState = data;
+  state = data;
+
+  const upi = (data.config.upi_id || '').trim();
+  const hasRealUpi = upi && upi !== 'yourname@upi';
+  document.getElementById('upiBanner').textContent = hasRealUpi
+    ? ('Linked UPI: ' + upi)
+    : 'Tap ⚙️ Setup to enter your real UPI ID';
+  document.getElementById('vaultUpiText').textContent = hasRealUpi ? upi : 'Set in ⚙️ Setup first';
+  document.getElementById('setupAlert').style.display = hasRealUpi ? 'none' : 'block';
+
+  let totalViews = 0, totalClicks = 0;
+  data.routines.forEach(r => { totalViews += r.views; totalClicks += r.clicks; });
 
   document.getElementById('statPages').textContent = data.routines.length;
-  document.getElementById('homeConfirmed').textContent = Math.round(data.wallet.confirmed_inr);
-  document.getElementById('vaultConfirmed').textContent = Math.round(data.wallet.confirmed_inr);
-  document.getElementById('vaultPending').textContent = Math.round(data.wallet.pending_inr);
-  document.getElementById('goldBalance').textContent = Math.round(data.wallet.gold_vault_inr);
-  document.getElementById('goldStreak').textContent = data.wallet.daily_gold_streak;
-  document.getElementById('splitLabel').textContent = data.config.gold_split_pct || '50';
+  document.getElementById('statViews').textContent = totalViews;
+  document.getElementById('statClicks').textContent = totalClicks;
+  document.getElementById('vaultClicks').textContent = totalClicks;
+  document.getElementById('realWithdrawn').textContent = Math.round(data.wallet.real_withdrawn_inr);
+  document.getElementById('goldSaved').textContent = Math.round(data.wallet.gold_vault_inr);
 
-  const enabled = data.config.autopilot_enabled === '1';
-  document.getElementById('statusDot').style.background = enabled ? '#4ade80' : '#f87171';
-  document.getElementById('statusText').textContent = enabled
-    ? 'Cloud Brain Active · Next Pin 8:30 PM IST'
-    : 'Autopilot Paused by User';
-  document.getElementById('toggleBotBtn').textContent = enabled ? 'Pause AI' : 'Resume AI';
-
-  document.getElementById('cfgUpi').value = data.config.upi_id || '';
-  document.getElementById('cfgTag').value = data.config.affiliate_tag || '';
+  document.getElementById('cfgUpi').value = hasRealUpi ? upi : '';
+  document.getElementById('cfgCuelinks').value = data.config.cuelinks_cid || '';
+  document.getElementById('cfgRefer').value = data.config.earnkaro_refer_url || '';
   document.getElementById('cfgSplit').value = data.config.gold_split_pct || '50';
-  document.getElementById('upiDeepLink').href =
-    'upi://pay?pa=' + encodeURIComponent(data.config.upi_id || 'yourname@upi') + '&pn=GoldVault&am=10&cu=INR';
 
-  // Render logs
-  const logsHtml = data.logs.map(l =>
+  document.getElementById('logsBox').innerHTML = data.logs.map(l =>
     `<div class="log-row"><strong style="color:#065f46">[${l.engine}]</strong> ${l.message} <span style="color:#94a3b8;font-size:11px">(${l.created_at})</span></div>`
-  ).join('');
-  document.getElementById('logsBox').innerHTML = logsHtml || '<div class="log-row">Ready to start first cycle.</div>';
+  ).join('') || '<div class="log-row">System ready.</div>';
 
-  // Render pins & pages
-  const pinsHtml = data.routines.map(r => `
-    <div class="pin-item">
-      <a href="pins/${r.pin_image}" download="${r.pin_image}" title="Download 1000x1500 Pin PNG">
-        <img class="pin-thumb" src="pins/${r.pin_image}" alt="Pin">
-      </a>
-      <div style="flex:1;min-width:0">
-        <span class="tag" style="margin-bottom:4px">${r.niche} · ${r.link_health}</span>
-        <div style="font-size:13.5px;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.pin_headline}</div>
-        <div style="font-size:11.5px;color:#64748b;margin-bottom:7px">${r.pinterest_status}</div>
-        <div style="display:flex;gap:8px">
-          <a href="${r.blogger_url.replace(/^\//,'')}" target="_blank" style="font-size:12px;font-weight:700;color:#059669;text-decoration:none">Open Routine Page ↗</a>
-          <a href="pins/${r.pin_image}" download="${r.pin_image}" style="font-size:12px;font-weight:700;color:#2563eb;text-decoration:none">Save Pin PNG ⬇</a>
+  const origin = window.location.origin;
+  document.getElementById('pinsList').innerHTML = data.routines.map(r => {
+    const steps = JSON.parse(r.steps_json);
+    const pageUrl = origin + '/r/' + r.slug;
+    const isWarn = r.link_mode.includes('⚠️');
+    return `
+      <div class="pin-card">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <a href="pins/${r.pin_image}" download="${r.pin_image}">
+            <img src="pins/${r.pin_image}" style="width:68px;height:102px;border-radius:10px;border:1px solid #e2e8f0;object-fit:cover">
+          </a>
+          <div style="flex:1;min-width:0">
+            <span class="tag ${isWarn ? 'tag-warn' : ''}">${r.link_mode}</span>
+            <div style="font-size:14px;font-weight:700;margin:5px 0 3px">${r.pin_headline}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Board: ${r.board} · Views: ${r.views} · Clicks: ${r.clicks}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <a href="pins/${r.pin_image}" download="${r.pin_image}" class="btn btn-outline btn-sm" style="text-decoration:none">⬇ Save Pin PNG</a>
+              <button class="btn btn-outline btn-sm" onclick='copyText(${JSON.stringify(r.pin_title)}, "Pin Title")'>Copy Title</button>
+              <button class="btn btn-outline btn-sm" onclick='copyText(${JSON.stringify(r.pin_desc)}, "Description")'>Copy Desc</button>
+              <button class="btn btn-primary btn-sm" onclick='copyText(${JSON.stringify(pageUrl)}, "Page Link")'>Copy Page Link</button>
+            </div>
+          </div>
         </div>
+        <details style="margin-top:10px;border-top:1px dashed #e2e8f0;padding-top:8px">
+          <summary style="font-size:12.5px;font-weight:700;color:#059669;cursor:pointer">🔗 Paste Your 3 Real EarnKaro (ekaro.in) Links Here</summary>
+          <div style="margin-top:8px">
+            <label>Step 1 Link (${steps[0].name})</label>
+            <input id="lnk_${r.id}_0" value="${steps[0].aff_url}">
+            <label>Step 2 Link (${steps[1].name})</label>
+            <input id="lnk_${r.id}_1" value="${steps[1].aff_url}">
+            <label>Step 3 Link (${steps[2].name})</label>
+            <input id="lnk_${r.id}_2" value="${steps[2].aff_url}">
+            <button class="btn btn-primary" style="margin-top:10px" onclick="saveRoutineLinks(${r.id}, '${r.slug}')">Save Real Links for This Page</button>
+          </div>
+        </details>
       </div>
-    </div>
-  `).join('');
-  document.getElementById('pinsList').innerHTML = pinsHtml || '<p style="font-size:13px;color:#64748b">Tap "Run AI Cycle Now" on Home tab to create your first Pin & Routine!</p>';
+    `;
+  }).join('');
+}
+
+async function saveRoutineLinks(id, slug) {
+  const urls = [
+    document.getElementById(`lnk_${id}_0`).value.trim(),
+    document.getElementById(`lnk_${id}_1`).value.trim(),
+    document.getElementById(`lnk_${id}_2`).value.trim(),
+  ];
+  await fetch('api/update-links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug, urls })
+  });
+  await fetchState();
+  showToast('Real EarnKaro Links Saved!');
 }
 
 async function triggerCycle() {
   const btn = document.getElementById('runBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Running 7 AI Engines...';
+  btn.textContent = '⏳ Building...';
   await fetch('api/run-cycle', { method: 'POST' });
   await fetchState();
   btn.disabled = false;
-  btn.textContent = '⚡ Run AI Cycle Now (Build Page + Pin)';
-  showToast('New Routine Page + 1000x1500 Pin Created!');
+  btn.textContent = '⚡ Generate Routine + Pin Now';
+  showToast('Done! Check AI Pins tab.');
 }
 
-async function collectMoney() {
-  const res = await fetch('api/collect', { method: 'POST' });
-  const out = await res.json();
+async function recordRealPayout() {
+  const upi = (state.config.upi_id || '').trim();
+  if (!upi || upi === 'yourname@upi') {
+    showToast('Set your real UPI ID in ⚙️ Setup first!');
+    switchTab('setup');
+    return;
+  }
+  const val = parseFloat(document.getElementById('logAmt').value || '0');
+  if (val <= 0) { showToast('Enter a valid ₹ amount'); return; }
+  await fetch('api/log-payout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: val })
+  });
+  document.getElementById('logAmt').value = '';
   await fetchState();
-  showToast(out.message);
+  showToast('Logged real payout + Gold split!');
 }
 
 async function saveSettings() {
-  const payload = {
-    upi_id: document.getElementById('cfgUpi').value.trim(),
-    affiliate_tag: document.getElementById('cfgTag').value.trim(),
-    gold_split_pct: document.getElementById('cfgSplit').value,
-    gemini_api_key: document.getElementById('cfgGemini').value.trim(),
-    pinterest_token: document.getElementById('cfgPinToken').value.trim(),
-    blogger_blog_id: document.getElementById('cfgBlogId').value.trim(),
-    blogger_token: document.getElementById('cfgBlogToken').value.trim(),
-  };
+  const upi = document.getElementById('cfgUpi').value.trim();
+  if (!upi || upi === 'yourname@upi' || !upi.includes('@')) {
+    showToast('Please enter a valid UPI ID (with @)!');
+    return;
+  }
   await fetch('api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      upi_id: upi,
+      cuelinks_cid: document.getElementById('cfgCuelinks').value.trim(),
+      earnkaro_refer_url: document.getElementById('cfgRefer').value.trim(),
+      gold_split_pct: document.getElementById('cfgSplit').value,
+      gemini_api_key: document.getElementById('cfgGemini').value.trim(),
+    })
   });
   await fetchState();
-  showToast('Cloud Settings Saved!');
-}
-
-async function toggleAutopilot() {
-  const nextVal = currentState.config.autopilot_enabled === '1' ? '0' : '1';
-  await fetch('api/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ autopilot_enabled: nextVal })
-  });
-  await fetchState();
-  showToast(nextVal === '1' ? 'Autopilot Resumed!' : 'Autopilot Paused');
+  showToast('Your Real UPI & Settings Saved!');
 }
 
 fetchState();
@@ -884,7 +744,7 @@ class AutoGullakHandler(BaseHTTPRequestHandler):
 
         if path == "/api/status":
             conn = get_db()
-            routines = [dict(r) for r in conn.execute("SELECT * FROM routines ORDER BY id DESC LIMIT 20").fetchall()]
+            routines = [dict(r) for r in conn.execute("SELECT * FROM routines ORDER BY id DESC LIMIT 30").fetchall()]
             logs = [dict(l) for l in conn.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 12").fetchall()]
             wallet = dict(conn.execute("SELECT * FROM wallet WHERE id = 1").fetchone())
             conn.close()
@@ -906,84 +766,114 @@ class AutoGullakHandler(BaseHTTPRequestHandler):
                 conn.execute("UPDATE routines SET views = views + 1 WHERE slug = ?", (slug,))
                 conn.commit()
                 conn.close()
-                return self._send(200, render_routine_public_html(dict(row)), "text/html; charset=utf-8")
+                return self._send(200, render_routine_public_html(dict(row), get_config_dict()), "text/html; charset=utf-8")
             conn.close()
             return self._send(404, "Routine not found", "text/plain")
+
+        # Click tracker redirect (/go/<slug>/<step_idx>) so user sees REAL shopper clicks!
+        if path.startswith("/go/"):
+            parts = path.split("/go/", 1)[1].strip("/").split("/")
+            if len(parts) == 2:
+                slug, idx_str = parts[0], parts[1]
+                conn = get_db()
+                row = conn.execute("SELECT steps_json FROM routines WHERE slug = ?", (slug,)).fetchone()
+                if row and idx_str.isdigit():
+                    steps = json.loads(row["steps_json"])
+                    idx = int(idx_str)
+                    if 0 <= idx < len(steps):
+                        target = steps[idx]["aff_url"]
+                        conn.execute("UPDATE routines SET clicks = clicks + 1 WHERE slug = ?", (slug,))
+                        conn.commit()
+                        conn.close()
+                        self.send_response(302)
+                        self.send_header("Location", target)
+                        self.end_headers()
+                        return
+                conn.close()
+            return self._send(404, "Link not found", "text/plain")
 
         return self._send(404, "Not found", "text/plain")
 
     def do_POST(self):
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
+        path = urllib.parse.urlparse(self.path).path
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        body = json.loads(raw or "{}")
 
         if path == "/api/run-cycle":
             slug = run_autonomous_cycle()
             return self._send(200, json.dumps({"ok": True, "slug": slug}))
 
-        if path == "/api/collect":
-            cfg = get_config_dict()
-            split_pct = float(cfg.get("gold_split_pct", "50")) / 100.0
+        if path == "/api/update-links":
+            slug = body.get("slug", "")
+            urls = body.get("urls", [])
             conn = get_db()
-            w = dict(conn.execute("SELECT * FROM wallet WHERE id = 1").fetchone())
-            amt = w["confirmed_inr"]
-            if amt < 10:
-                conn.close()
-                return self._send(200, json.dumps({"ok": False, "message": "Minimum ₹10 confirmed needed to collect!"}))
-            to_gold = round(amt * split_pct, 2)
-            to_upi = round(amt - to_gold, 2)
-            conn.execute(
-                "UPDATE wallet SET confirmed_inr = 0, gold_vault_inr = gold_vault_inr + ?, total_withdrawn_inr = total_withdrawn_inr + ? WHERE id = 1",
-                (to_gold, to_upi),
-            )
-            conn.commit()
-            conn.close()
-            log_event("UPI Cashout", f"Human collected ₹{int(amt)} -> ₹{int(to_upi)} to UPI ({cfg.get('upi_id')}) + ₹{int(to_gold)} into 24K Gold Vault!")
-            return self._send(200, json.dumps({"ok": True, "message": f"₹{int(to_upi)} sent to UPI + ₹{int(to_gold)} added to Gold Vault!"}))
-
-        if path == "/api/config":
-            updates = json.loads(raw or "{}")
-            conn = get_db()
-            for k, v in updates.items():
-                if v != "" or k == "autopilot_enabled":
-                    conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (k, str(v)))
-            conn.commit()
+            row = conn.execute("SELECT steps_json FROM routines WHERE slug = ?", (slug,)).fetchone()
+            if row and len(urls) == 3:
+                steps = json.loads(row["steps_json"])
+                all_ekaro = True
+                for i in range(3):
+                    steps[i]["aff_url"] = urls[i]
+                    if "ekaro.in" not in urls[i] and "linksredirect" not in urls[i]:
+                        all_ekaro = False
+                badge = "EarnKaro Live ✅" if all_ekaro else "Custom Links Saved ✅"
+                conn.execute("UPDATE routines SET steps_json = ?, link_mode = ? WHERE slug = ?", (json.dumps(steps), badge, slug))
+                conn.commit()
+                log_event("Real Links", f"Updated 3 affiliate links on '/r/{slug}' ({badge}).")
             conn.close()
             return self._send(200, json.dumps({"ok": True}))
 
-        return self._send(404, json.dumps({"error": "Unknown route"}))
+        if path == "/api/log-payout":
+            amt = float(body.get("amount", 0))
+            cfg = get_config_dict()
+            split = float(cfg.get("gold_split_pct", "50")) / 100.0
+            to_gold = round(amt * split, 2)
+            conn = get_db()
+            conn.execute("UPDATE wallet SET real_withdrawn_inr = real_withdrawn_inr + ?, gold_vault_inr = gold_vault_inr + ? WHERE id = 1", (amt, to_gold))
+            conn.commit()
+            conn.close()
+            log_event("Real Payout", f"Logged ₹{int(amt)} withdrawn to {cfg.get('upi_id')} (₹{int(to_gold)} earmarked for Gold Vault).")
+            return self._send(200, json.dumps({"ok": True}))
+
+        if path == "/api/config":
+            conn = get_db()
+            for k, v in body.items():
+                if v != "" or k in ("cuelinks_cid", "earnkaro_refer_url"):
+                    conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (k, str(v)))
+            conn.commit()
+            conn.close()
+            log_event("Setup", f"Saved permanent account settings (UPI: {body.get('upi_id', 'updated')}).")
+            return self._send(200, json.dumps({"ok": True}))
+
+        return self._send(404, json.dumps({"error": "Not found"}))
 
 
 def background_scheduler_loop():
-    """Runs quietly in background every 12 hours when hosted continuously."""
     while True:
         time.sleep(43200)
         try:
             if get_config_dict().get("autopilot_enabled") == "1":
                 run_autonomous_cycle()
-        except Exception as exc:
-            log_event("Scheduler", f"Retry queued: {exc}")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
     init_db()
-    # Seed 1 initial routine + Pin on very first launch so dashboard is immediately alive
     conn = get_db()
     count = conn.execute("SELECT COUNT(*) AS c FROM routines").fetchone()["c"]
     conn.close()
     if count == 0:
-        run_autonomous_cycle()
+        for _ in range(4):
+            run_autonomous_cycle()
 
     if "--cron" in sys.argv:
         slug = run_autonomous_cycle()
-        print(f"[AutoGullak Cron] Completed autonomous cycle -> {slug}")
+        print(f"[AutoGullak v2 Cron] Completed -> {slug}")
         sys.exit(0)
 
-    t = threading.Thread(target=background_scheduler_loop, daemon=True)
-    t.start()
-
+    threading.Thread(target=background_scheduler_loop, daemon=True).start()
     port = int(os.environ.get("PORT", "8000"))
     server = ThreadingHTTPServer(("0.0.0.0", port), AutoGullakHandler)
-    print(f"AutoGullak AI running on http://0.0.0.0:{port}")
+    print(f"AutoGullak AI v2 running on http://0.0.0.0:{port}")
     server.serve_forever()
